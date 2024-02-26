@@ -1,8 +1,7 @@
-import os
 import telebot
 import yfinance as yf
 
-API_KEY = os.getenv('API_KEY')
+API_KEY = '7123140191:AAEL-SOG_2Vtnnjn6gfDFSKyGVTYY5vlO2c'
 bot = telebot.TeleBot(API_KEY)
 
 @bot.message_handler(commands=['Greet'])
@@ -49,15 +48,16 @@ def stock_request(message):
 
 @bot.message_handler(func=stock_request)
 def send_price(message):
-  request = message.text.split()[1]
-  data = yf.download(tickers=request, period='5m', interval='1m')
-  if data.size > 0:
-    data = data.reset_index()
-    data["format_date"] = data['Datetime'].dt.strftime('%m/%d %I:%M %p')
-    data.set_index('format_date', inplace=True)
-    print(data.to_string())
-    bot.send_message(message.chat.id, data['Close'].to_string(header=False))
-  else:
-    bot.send_message(message.chat.id, "No data!?")
+    request = message.text.split()[1]
+    data = yf.download(tickers=request, period='5d', interval='1d')
+
+    if data.size > 0:
+        data["format_date"] = data.index.strftime('%m/%d %I:%M %p')
+        response = data[['Close', 'format_date']].to_string(header=False)
+        bot.send_message(message.chat.id, response)
+    else:
+        bot.send_message(message.chat.id, "No data!?")
+
+
 
 bot.polling()
