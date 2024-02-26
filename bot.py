@@ -49,13 +49,15 @@ def stock_request(message):
 @bot.message_handler(func=stock_request)
 def send_price(message):
     request = message.text.split()[1]
-    data = yf.download(tickers=request, period='5m', interval='1m')  # Menggunakan interval 1 menit
+    data = yf.download(tickers=request, period='5d', interval='1d')
+
     if data.size > 0:
-        data["format_date"] = data.index.strftime('%m/%d %I:%M %p')  # Menggunakan indeks waktu sebagai format tanggal
-        response = data[['Close']].tail(5).to_string(header=False)  # Mengambil 5 baris terakhir harga penutupan
+        data["format_date"] = data.index.strftime('%m/%d %I:%M %p')
+        response = data[['Close', 'format_date']].to_string(header=False)
         bot.send_message(message.chat.id, response)
     else:
         bot.send_message(message.chat.id, "No data!?")
+
 
 
 bot.polling()
