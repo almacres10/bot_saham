@@ -1,51 +1,80 @@
+# import library yang kita butuhkan
 import telebot
 import yfinance as yf
+import pandas as pd
 
-API_KEY = '7123140191:AAEL-SOG_2Vtnnjn6gfDFSKyGVTYY5vlO2c'
+#isikan token yang kita dapatkan
+API_KEY = '7166054005:AAFKddSi1YDpuJpxxu1iIhqmXFHR7Bly5Og'
 bot = telebot.TeleBot(API_KEY)
 
-@bot.message_handler(commands=['Greet'])
+start_message = """Halo! Saya adalah StocksBotID.
+Saya dapat membantu Anda dengan informasi saham dan data harga saham.
+Silakan ketikkan perintah seperti:
+- info [nama_ticker] untuk mendapatkan informasi saham.
+- harga [nama_ticker] untuk mendapatkan data harga saham.
+- download [nama_ticker] untuk mendownload data harga saham"""
+
+@bot.message_handler(commands=['start'])
 def greet(message):
-  bot.reply_to(message, "Hey! Hows it going?")
+    bot.reply_to(message, start_message)
 
-@bot.message_handler(commands=['hello'])
+# Setiap kata yang kita masukkan menjadi parameter di "commands", yang kita ketikkan
+# di bot akan menampilkan message sesuai dengan yang kita mau
+# Ketika kita ketikkan /Salam di bot, maka akan muncul pesan otomatis
+# "Halo, Saya StocksBotID siap membantu anda."
+@bot.message_handler(commands=['Salam'])
+def greet(message):
+  bot.reply_to(message, "Halo, Saya StocksBotID siap membantu anda.")
+
+@bot.message_handler(commands=['Halo'])
 def hello(message):
-  bot.send_message(message.chat.id, "Hello!")
+  bot.send_message(message.chat.id, "Halo!")
 
-@bot.message_handler(commands=['wsb'])
-def get_stocks(message):
-  response = ""
-  stocks = ['gme', 'amc', 'nok']
-  stock_data = []
-  for stock in stocks:
-    data = yf.download(tickers=stock, period='2d', interval='1d')
-    data = data.reset_index()
-    response += f"-----{stock}-----\n"
-    stock_data.append([stock])
-    columns = ['stock']
-    for index, row in data.iterrows():
-      stock_position = len(stock_data) - 1
-      price = round(row['Close'], 2)
-      format_date = row['Date'].strftime('%m/%d')
-      response += f"{format_date}: {price}\n"
-      stock_data[stock_position].append(price)
-      columns.append(format_date)
-    print()
 
-  response = f"{columns[0] : <10}{columns[1] : ^10}{columns[2] : >10}\n"
-  for row in stock_data:
-    response += f"{row[0] : <10}{row[1] : ^10}{row[2] : >10}\n"
-  response += "\nStock Data"
-  print(response)
-  bot.send_message(message.chat.id, response)
+# Fungsi ini untuk memberikan informasi saham setiap diketikkan kata "info" + ticker saham
+# Karena ada banyak kriteria informasi saham, kita coba dengan memberikan yang biasa kita perlukan.
+# jika kode ticker saham diketikkan dan diawali kata "info", makan fungsi akan menghasilkan True
+# Ini berguna untuk filter kata penulisan yang kita harapkan untuk diketikkan ke dalam bot
+# Jika diketikkan "info BBNI.JK", maka akan menghasilkan True dan lanjut ke fungsi dibawahnya
+def stock_info(message):
+    request = message.text.split()
+    if len(request) < 2 or request[0].lower() not in "info":
+        return False
+    else:
+        return True
 
+@bot.message_handler(func=stock_info)
+def send_info(message): 
+    request = message.text.split()[1]
+    ticker = yf.Ticker(request)
+    
+    # Mengambil informasi umum tentang saham
+    info = ticker.info
+
+    # Membuat pesan balasan dengan membatasi jumlah informasi yang ditampilkan
+    response = "Informasi tentang saham:\n"
+    keys_to_display = ['shortName', 'sector', 'country', 'marketCap', 'regularMarketPrice', 'earningsGrowth', 'revenueGrowth']
+    for key in keys_to_display:
+        if key in info:
+            response += f"{key}: {info[key]}\n"
+
+    # Mengirim pesan balasan kepada pengguna
+    bot.send_message(message.chat.id, response)
+
+
+# Ini adalah contoh fungsi untuk mendapatkan data harga saham
+# jika kode ticker saham diketikkan dan diawali kata "harga", makan fungsi akan menghasilkan True
+# Ini berguna untuk filter kata penulisan yang kita harapkan untuk diketikkan ke dalam bot
+# Jika diketikkan "harga BBNI.JK", maka akan menghasilkan True dan lanjut ke fungsi dibawahnya
 def stock_request(message):
   request = message.text.split()
-  if len(request) < 2 or request[0].lower() not in "price":
+  if len(request) < 2 or request[0].lower() not in "harga":
     return False
   else:
     return True
-
+  
+# Kemudian harga saham ditarik dari fungsi ini, dengan interval 1 hari selama 5 hari terakhir
+# Sayangnya, untuk yfinance hanya bisa menarik data saham dengan interval tercepat 1 hari.
 @bot.message_handler(func=stock_request)
 def send_price(message):
     request = message.text.split()[1]
@@ -56,21 +85,30 @@ def send_price(message):
         response = data[['Close', 'format_date']].to_string(header=False)
         bot.send_message(message.chat.id, response)
     else:
-        bot.send_message(message.chat.id, "No data!?")
+        bot.send_message(message.chat.id, "Tidak ada data harga saham.")
 
-# @bot.message_handler(func=stock_request)
-# def send_price_minutely(message):
-#     request = message.text.split()[1]
-#     data = yf.download(tickers=request, period='5m', interval='1m')
+    
+# Sama seperti diatas, skrip ini untuk mendownload data harga saham
+def stock_price(message):
+    request = message.text.split()
+    if len(request) < 2 or request[0].lower() != "download":
+        return False
+    else:
+        return True
 
-#     if data.size > 0:
-#         data["format_date"] = data.index.strftime('%m/%d %I:%M %p')
-#         response = data[['Close', 'format_date']].to_string(header=False)
-#         bot.send_message(message.chat.id, response)
-#     else:
-#         bot.send_message(message.chat.id, "No data!?")
+@bot.message_handler(func=stock_price)
+def download_price(message):
+    request = message.text.split()[1]
+    # Selama satu tahun dengan interval satu hari bursa
+    data = yf.download(tickers=request, period='1y', interval='1d')
+
+    if data.size > 0:
+        filename = f"{request}_price.csv"
+        data.to_csv(filename)
+        bot.send_document(message.chat.id, open(filename, 'rb'))
+    else:
+        bot.send_message(message.chat.id, "Tidak ada data harga saham.")
 
 
-
-
+# Eksekusi semua fungsi
 bot.polling()
